@@ -18,9 +18,9 @@ interface RequestConfig {
 
 // Initialization
 const REQ_OBJECT: RequestConfig = {
-    ROLLNUMBER: '220909',
+    ROLLNUMBER: '220981',
     STARTINDEX: 3000,
-    ENDINDEX: 8000,
+    ENDINDEX: 10000,
     BATCH: Number(process.env.BATCH) || 50,
     MAX_CONCURRENT_REQUESTS: 50,
     HTMLCONTENT: "",
@@ -115,8 +115,17 @@ async function processBatch({ ROLLNUMBER, STARTINDEX, ENDINDEX }: processBatchMe
 // Main Method
 async function main({ ROLLNUMBER, STARTINDEX, ENDINDEX, BATCH, VERIFYLINK }: MainMethodArgs) {
 
-    if (ROLLNUMBER == '000000') {
-        console.log("ADD ROLLNUMBER TO REQ_OBJECT line 17");
+    let Num = Number(ROLLNUMBER)
+
+    try {
+        if (Number.isNaN(Num)) {
+            throw new Error
+        }
+        else if (Num >= 300000 || Num <= 200000) {
+            throw new Error
+        }
+    } catch (error) {
+        console.log("ADD VALID ROLLNUMBER TO REQ_OBJECT - line 21");
         return
     }
 
@@ -136,6 +145,7 @@ async function main({ ROLLNUMBER, STARTINDEX, ENDINDEX, BATCH, VERIFYLINK }: Mai
             process.exit(1);
         } else {
             console.log("No password match between", j, "to", j + BATCH);
+            console.log("Try changing STARTINDEX and ENDINDEX");
         }
     }
 }
