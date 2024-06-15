@@ -12,7 +12,7 @@ interface RequestConfig {
 }
 
 const REQ_OBJECT: RequestConfig = {
-    ROLLNUMBER: '220964',
+    ROLLNUMBER: '220963',
     STARTINDEX: 3000,
     ENDINDEX: 8000,
     BATCH: Number(process.env.BATCH) || 50,
@@ -92,6 +92,12 @@ async function processBatch(roll: string, start: number, end: number) {
 }
 
 async function main(RollNum: string, start: number, end: number, batch: number) {
+
+    if (RollNum == '000000') {
+        console.log("Add ROLLNUMBER at line 15");
+        return
+    }
+
     for (let j = start; j <= end; j += batch) {
         console.log("Checking for:", j, "to", j + batch);
 
