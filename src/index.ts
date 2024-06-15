@@ -12,7 +12,7 @@ interface RequestConfig {
 }
 
 const REQ_OBJECT: RequestConfig = {
-    ROLLNUMBER: '220963',
+    ROLLNUMBER: '000000',
     STARTINDEX: 3000,
     ENDINDEX: 8000,
     BATCH: Number(process.env.BATCH) || 50,
